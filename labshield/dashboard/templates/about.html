@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — LabShield</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-hi: #1c2128;
+      --border: #21262d;
+      --border-hi: #30363d;
+      --text: #e6edf3;
+      --text-sub: #8b949e;
+      --text-muted: #484f58;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --blue: #58a6ff;
+      --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: 48px;
+      background: var(--bg);
+      border-bottom: 0.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+    }
+    .back-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .brand {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: var(--text-sub);
+      text-transform: uppercase;
+    }
+    .content {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    h1 {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 16px;
+      color: var(--text);
+      margin: 32px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    h3 {
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+    p {
+      color: var(--text-sub);
+      margin-bottom: 12px;
+    }
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 10px;
+    }
+    .card p { margin-bottom: 0; }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 0.5px solid var(--border);
+      font-size: 13px;
+    }
+    th {
+      color: var(--text-sub);
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    td { color: var(--text-sub); }
+    td:first-child {
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      width: 180px;
+    }
+    .highlight {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-left: 2px solid var(--blue);
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 12px 0;
+    }
+    .highlight p { margin-bottom: 0; }
+    ul {
+      color: var(--text-sub);
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+    li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <a href="/" class="back-link">← Dashboard</a>
+    <span class="brand">LABSHIELD · ABOUT</span>
+  </header>
+
+  <div class="content">
+
+    <h1>About LabShield</h1>
+    <p class="mono">7th Semester Project · Single PC Exam Surveillance</p>
+
+    <h2>About LabShield</h2>
+    <p>
+      LabShield is a silent exam surveillance system built for college practical labs.
+      During a practical exam, students write code on a lab PC while LabShield runs
+      invisibly in the background. Every action — DNS queries, window switches,
+      clipboard pastes, file opens, USB mounts, and typing patterns — is logged with
+      timestamps to a local SQLite database.
+    </p>
+    <p>
+      The philosophy is <strong style="color:var(--text);">surveillance over blocking</strong>.
+      Students are never blocked from any website or application. They have full freedom
+      during the exam, but everything is recorded. After the exam, the teacher opens
+      the dashboard at localhost:5000 and sees a complete evidence timeline with a
+      suspicion score and optional AI verdict from Gemini Flash.
+    </p>
+
+    <h2>Detection Methods</h2>
+
+    <div class="card">
+      <h3>🌐 DNS Monitor (Scapy)</h3>
+      <p>
+        Sniffs all DNS query packets on the network interface using Scapy.
+        Captures every domain the student visits — including incognito/private browsing,
+        because DNS queries happen at the OS level before the browser can hide them.
+        Detects AI tools (ChatGPT, Gemini), search engines, online compilers, and messaging apps.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>🪟 Window Monitor (pygetwindow)</h3>
+      <p>
+        Polls the active window title every 1 second. Logs when the title changes.
+        Extracts page titles from browsers and filenames from IDEs.
+        Flags suspicious titles like Gmail, Google Classroom, and Google Drive.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>📋 Clipboard Monitor (pyperclip)</h3>
+      <p>
+        Polls clipboard content every 0.5 seconds. When content changes and is non-empty,
+        logs the paste with character count and a 100-character preview.
+        Pastes over 100 characters are flagged as suspicious large pastes (+30 points).
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>⌨ Keystroke Monitor (pynput)</h3>
+      <p>
+        Counts keypresses using pynput — never records actual key characters.
+        Every 5 seconds, calculates typing rate (keys per second).
+        Rates above 20 keys/sec indicate paste-like velocity (+30 points).
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>📁 File Monitor (watchdog)</h3>
+      <p>
+        Watches Desktop, Documents, home folder, and USB drive paths for file open
+        and modify events. Flags code file extensions (.py, .java, .c, etc.) and
+        any file accessed from a USB drive letter.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>💾 USB Monitor (psutil)</h3>
+      <p>
+        Polls disk partitions every 2 seconds. Detects when a removable USB drive
+        is mounted or removed within 2 seconds. USB insertion during an exam
+        is flagged immediately (+25 points).
+      </p>
+    </div>
+
+    <h2>Tech Stack</h2>
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Python 3.11+</td><td>Agent core language — clean and explainable in viva</td></tr>
+        <tr><td>Scapy</td><td>DNS packet sniffing — catches incognito browsing</td></tr>
+        <tr><td>pygetwindow</td><td>Active window title polling</td></tr>
+        <tr><td>watchdog</td><td>Real-time file system event monitoring</td></tr>
+        <tr><td>psutil</td><td>USB drive mount detection</td></tr>
+        <tr><td>pyperclip</td><td>Clipboard paste detection and size measurement</td></tr>
+        <tr><td>pynput</td><td>Keystroke timing — velocity only, never key content</td></tr>
+        <tr><td>SQLite</td><td>Local file-based database — zero setup</td></tr>
+        <tr><td>HMAC-SHA256</td><td>Tamper-proof log signing for every event row</td></tr>
+        <tr><td>Flask</td><td>Teacher dashboard web server at localhost:5000</td></tr>
+        <tr><td>Chart.js</td><td>Score-over-time line chart on the dashboard</td></tr>
+        <tr><td>Gemini Flash API</td><td>AI verdict — structured JSON via HTTP requests</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Why Each Method Works</h2>
+
+    <div class="highlight">
+      <h3>Why DNS Sniffing Catches Incognito Mode</h3>
+      <p>
+        When a student opens an incognito browser window and visits chatgpt.com, the browser
+        hides history and cookies — but it still sends a DNS query to resolve the domain name
+        to an IP address. This query travels over the network at the OS level. Scapy captures
+        these packets directly, bypassing all browser privacy features. The student cannot hide
+        DNS queries without breaking their internet connection entirely.
+      </p>
+    </div>
+
+    <div class="highlight">
+      <h3>Why HMAC Signing Matters</h3>
+      <p>
+        Every event row in SQLite is signed with HMAC-SHA256 using a secret key. The signature
+        covers the timestamp, event type, and detail text. If anyone modifies a log entry after
+        the exam — changing a timestamp or deleting an event — the signature will no longer match.
+        This provides tamper-proof evidence that holds up during academic integrity reviews.
+      </p>
+    </div>
+
+    <div class="highlight">
+      <h3>Why Keystroke Velocity Detects Paste</h3>
+      <p>
+        Human typing averages 4–8 keys per second. When a student pastes 200 lines of code,
+        all characters appear in the editor within milliseconds — producing a rate of 50–200+
+        keys per second. LabShield never records what keys were pressed; it only counts how many
+        keys per second arrived. A sudden spike above 20 keys/sec is strong evidence of paste.
+      </p>
+    </div>
+
+    <h2>Suspicion Score Guide</h2>
+    <table>
+      <thead>
+        <tr><th>Score</th><th>Level</th><th>Meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr><td style="color:var(--green);">0 – 30</td><td>GREEN · Clean</td><td>Looks clean — no significant suspicious activity</td></tr>
+        <tr><td style="color:var(--yellow);">31 – 80</td><td>YELLOW · Suspicious</td><td>Teacher should review flagged events</td></tr>
+        <tr><td style="color:var(--red);">81+</td><td>RED · High Risk</td><td>Strong evidence of cheating — review immediately</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Future Scope — 8th Semester Upgrade</h2>
+    <p>
+      The single-PC architecture in 7th semester is designed as a foundation for a distributed
+      deployment in 8th semester. The same six monitor modules, rule engine, database schema,
+      and dashboard design will be reused with minimal changes:
+    </p>
+    <ul>
+      <li>Deploy the agent to 60 student PCs simultaneously</li>
+      <li>Stream events to a central PostgreSQL server via WebSocket (FastAPI)</li>
+      <li>React dashboard showing all 60 students on one teacher screen</li>
+      <li>Redis for live state caching across 60 concurrent sessions</li>
+      <li>Docker + Nginx for production deployment</li>
+      <li>JWT authentication for teacher login</li>
+      <li>Batch AI verdicts for all students at once</li>
+    </ul>
+    <p>
+      Zero changes are needed to the monitor modules, rule engine logic, Gemini integration,
+      or database schema — only the transport layer and dashboard scale up.
+    </p>
+
+  </div>
+</body>
+</html>

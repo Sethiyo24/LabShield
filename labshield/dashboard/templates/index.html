@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LabShield Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --surface-hi: #1c2128;
+      --border: #21262d; --border-hi: #30363d; --text: #e6edf3;
+      --text-sub: #8b949e; --text-muted: #484f58;
+      --green: #3fb950; --yellow: #d29922; --red: #f85149;
+      --blue: #58a6ff; --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; font-size: 13px; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .app-shell { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: 240px; flex-shrink: 0; background: var(--surface);
+      border-right: 0.5px solid var(--border); display: flex; flex-direction: column;
+      height: 100vh; position: sticky; top: 0;
+    }
+    .sidebar-head {
+      padding: 12px; border-bottom: 0.5px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-title { font-size: 11px; letter-spacing: 0.1em; color: var(--text-sub); text-transform: uppercase; }
+    .session-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .session-card {
+      padding: 10px; margin-bottom: 8px; border: 0.5px solid var(--border);
+      border-radius: 8px; cursor: pointer; border-left: 2px solid var(--border);
+    }
+    .session-card.active { border-left-color: var(--green); background: var(--surface-hi); }
+    .session-card:hover { background: var(--surface-hi); }
+    .session-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    .session-meta { font-size: 10px; color: var(--text-muted); line-height: 1.4; }
+    .score-badge {
+      display: inline-block; margin-top: 6px; font-size: 10px; font-family: 'JetBrains Mono', monospace;
+      padding: 2px 6px; border-radius: 4px; border: 0.5px solid;
+    }
+    .btn-delete-session {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      float: right;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s, background 0.15s;
+    }
+    .session-card:hover .btn-delete-session { opacity: 1; }
+    .btn-delete-session:hover { color: var(--red); background: rgba(248,81,73,0.1); }
+    .badge-green { color: var(--green); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.15); }
+    .badge-yellow { color: var(--yellow); border-color: rgba(210,153,34,0.3); background: rgba(210,153,34,0.15); }
+    .badge-red { color: var(--red); border-color: rgba(248,81,73,0.3); background: rgba(248,81,73,0.15); }
+    .content-wrap { flex: 1; min-width: 0; }
+    .header {
+      position: sticky; top: 0; z-index: 100; height: 48px; background: var(--bg);
+      border-bottom: 0.5px solid var(--border); display: flex; align-items: center;
+      justify-content: space-between; padding: 0 12px;
+    }
+    .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .dot-red { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+    .dot-green { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .brand { font-size: 12px; letter-spacing: 0.12em; color: var(--text-sub); text-transform: uppercase; white-space: nowrap; }
+    .header-sep { color: var(--text-muted); }
+    .header-question { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .live-badge { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; }
+    .live-badge.active { color: var(--green); }
+    .live-badge.ended { color: var(--red); }
+    .timer { font-size: 13px; color: var(--text); min-width: 70px; }
+    .btn {
+      font-family: 'Inter', sans-serif; font-size: 12px; padding: 5px 10px;
+      border-radius: 6px; cursor: pointer; background: transparent;
+      border: 0.5px solid var(--border-hi); color: var(--text-sub);
+    }
+    .btn-primary { border-color: var(--blue); color: var(--blue); }
+    .btn-danger { border-color: var(--red); color: var(--red); background: rgba(248,81,73,0.1); }
+    .btn-toggle.active { border-color: var(--blue); color: var(--blue); }
+    .btn-small { font-size: 11px; padding: 4px 8px; }
+    .main { padding: 10px; max-width: 1100px; }
+    .stat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px; }
+    .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px; padding: 14px; position: relative; overflow: hidden; }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-sub); font-family: 'JetBrains Mono', monospace; }
+    .stat-number { font-size: 24px; font-weight: 600; font-family: 'JetBrains Mono', monospace; margin: 4px 0; }
+    .stat-sub { font-size: 11px; color: var(--text-sub); }
+    .stat-strip { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; }
+    .color-green { color: var(--green); } .color-yellow { color: var(--yellow); } .color-red { color: var(--red); }
+    .strip-green { background: var(--green); } .strip-yellow { background: var(--yellow); } .strip-red { background: var(--red); }
+    .middle-row { display: grid; grid-template-columns: 58% 42%; gap: 8px; margin-bottom: 10px; }
+    .bottom-row { display: grid; grid-template-columns: 55% 45%; gap: 8px; margin-bottom: 10px; }
+    .extra-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .col-stack { display: flex; flex-direction: column; gap: 8px; }
+    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-sub); margin-bottom: 8px; }
+    .section-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+    .chart-wrap { height: 150px; position: relative; }
+    .ks-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+    .ks-time { width: 55px; font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+    .ks-bar-bg { flex: 1; height: 18px; background: var(--surface-hi); border-radius: 3px; overflow: hidden; }
+    .ks-bar-fill { height: 100%; border-radius: 3px; }
+    .ks-rate { width: 45px; text-align: right; font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+    .ks-warning { font-size: 12px; color: var(--yellow); margin-top: 6px; }
+    .breakdown-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .breakdown-label { width: 110px; font-size: 12px; color: var(--text-sub); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .breakdown-bar-bg { flex: 1; height: 6px; background: var(--surface-hi); border-radius: 3px; overflow: hidden; }
+    .breakdown-bar-fill { height: 100%; background: var(--red); }
+    .breakdown-pts { width: 45px; text-align: right; font-size: 11px; color: var(--red); font-family: 'JetBrains Mono', monospace; }
+    .breakdown-total { border-top: 0.5px solid var(--border); margin-top: 6px; padding-top: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .breakdown-empty { text-align: center; color: var(--green); padding: 16px 0; font-size: 12px; }
+    .verdict-placeholder { text-align: center; color: var(--text-muted); font-style: italic; padding: 20px 0; font-size: 12px; }
+    .verdict-badge { width: 100%; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border-radius: 6px; border: 0.5px solid; }
+    .verdict-cheated { background: rgba(248,81,73,0.15); color: var(--red); border-color: var(--red); }
+    .verdict-possible { background: rgba(210,153,34,0.15); color: var(--yellow); border-color: var(--yellow); }
+    .verdict-clean { background: rgba(63,185,80,0.15); color: var(--green); border-color: var(--green); }
+    .verdict-error { background: rgba(248,81,73,0.1); color: var(--red); border-color: var(--border-hi); }
+    .verdict-meta { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+    .verdict-reason { font-size: 12px; color: var(--text-sub); margin-top: 6px; line-height: 1.5; }
+    .verdict-evidence { list-style: none; margin-top: 6px; }
+    .verdict-evidence li { font-size: 11px; color: var(--text-sub); margin-bottom: 3px; }
+    .verdict-evidence li::before { content: '● '; color: var(--red); }
+    .verdict-judgment { font-size: 12px; color: var(--text); margin-top: 8px; font-weight: 600; }
+    /* AI Chat Modal */
+    .ai-chat-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13,17,23,0.92); z-index: 250; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    .ai-chat-overlay.show { display: flex; }
+    .ai-chat-modal { background: var(--surface); border: 0.5px solid var(--border-hi); border-radius: 14px; width: 90%; max-width: 680px; height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+    .ai-chat-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 0.5px solid var(--border); background: var(--surface-hi); flex-shrink: 0; }
+    .ai-chat-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+    .ai-chat-title-icon { font-size: 16px; }
+    .ai-chat-student { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .ai-chat-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+    .ai-chat-close:hover { color: var(--text); background: var(--border); }
+    .ai-chat-quick { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; background: var(--bg); }
+    .ai-quick-chip { font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border-hi); background: var(--surface); color: var(--text-sub); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .ai-quick-chip:hover { border-color: var(--blue); color: var(--blue); background: rgba(88,166,255,0.08); }
+    .ai-quick-chip.verdict-chip { border-color: rgba(188,140,255,0.4); color: var(--purple); }
+    .ai-quick-chip.verdict-chip:hover { background: rgba(188,140,255,0.1); }
+    .ai-chat-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .ai-msg { display: flex; gap: 10px; max-width: 100%; animation: msgFadeIn 0.2s ease; }
+    @keyframes msgFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .ai-msg-teacher { flex-direction: row-reverse; }
+    .ai-msg-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .ai-avatar-teacher { background: rgba(88,166,255,0.2); border: 0.5px solid var(--blue); }
+    .ai-avatar-ai { background: rgba(188,140,255,0.15); border: 0.5px solid rgba(188,140,255,0.4); }
+    .ai-msg-bubble { max-width: calc(100% - 46px); padding: 10px 13px; border-radius: 12px; font-size: 12px; line-height: 1.6; }
+    .ai-bubble-teacher { background: rgba(88,166,255,0.12); border: 0.5px solid rgba(88,166,255,0.25); color: var(--text); border-radius: 12px 12px 4px 12px; }
+    .ai-bubble-ai { background: var(--surface-hi); border: 0.5px solid var(--border); color: var(--text-sub); border-radius: 12px 12px 12px 4px; }
+    .ai-bubble-ai.verdict-result { border-color: rgba(188,140,255,0.3); }
+    .ai-bubble-verdict-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px; margin-bottom: 6px; }
+    .ai-bubble-verdict-cheated { background: rgba(248,81,73,0.15); color: var(--red); border: 0.5px solid var(--red); }
+    .ai-bubble-verdict-possible { background: rgba(210,153,34,0.15); color: var(--yellow); border: 0.5px solid var(--yellow); }
+    .ai-bubble-verdict-clean { background: rgba(63,185,80,0.15); color: var(--green); border: 0.5px solid var(--green); }
+    .ai-bubble-verdict-error { background: rgba(248,81,73,0.1); color: var(--red); border: 0.5px solid var(--border-hi); }
+    .ai-bubble-evidence { list-style: none; margin-top: 6px; padding-left: 0; }
+    .ai-bubble-evidence li { font-size: 11px; margin-bottom: 2px; }
+    .ai-bubble-evidence li::before { content: '▸ '; color: var(--red); }
+    .ai-bubble-judgment { margin-top: 8px; font-weight: 600; color: var(--text); font-size: 12px; }
+    .ai-msg-typing { color: var(--text-muted); font-size: 12px; font-style: italic; }
+    .ai-msg-ts { font-size: 10px; color: var(--text-muted); margin-top: 3px; text-align: right; }
+    .ai-msg-teacher .ai-msg-ts { text-align: left; }
+    .ai-chat-input-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 0.5px solid var(--border); background: var(--surface-hi); flex-shrink: 0; }
+    .ai-chat-input { flex: 1; background: var(--bg); border: 0.5px solid var(--border-hi); border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; padding: 8px 12px; outline: none; resize: none; max-height: 80px; }
+    .ai-chat-input:focus { border-color: var(--blue); }
+    .ai-send-btn { width: 34px; height: 34px; background: rgba(88,166,255,0.15); border: 0.5px solid var(--blue); border-radius: 8px; color: var(--blue); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; transition: all 0.15s; }
+    .ai-send-btn:hover { background: rgba(88,166,255,0.25); }
+    .ai-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .timeline-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .timeline-controls { display: flex; gap: 6px; }
+    .count-badge { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-left: 6px; }
+    .timeline-scroll, .paste-scroll { max-height: 280px; overflow-y: auto; }
+    .event-row, .paste-row, .usage-row {
+      display: flex; align-items: flex-start; gap: 6px; padding: 5px 0 5px 6px;
+      border-bottom: 0.5px solid var(--border); border-left: 2px solid var(--border);
+    }
+    .paste-row.flagged { border-left-color: var(--red); }
+    .event-ts { width: 60px; font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+    .event-icon { font-size: 13px; flex-shrink: 0; }
+    .event-detail { flex: 1; font-size: 11px; color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .paste-detail { flex: 1; font-size: 11px; color: var(--text-sub); line-height: 1.4; word-break: break-word; }
+    .event-badges { display: flex; gap: 4px; flex-shrink: 0; }
+    .pill { font-size: 10px; font-family: 'JetBrains Mono', monospace; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 0.5px solid; }
+    .pill-red { background: rgba(248,81,73,0.15); color: var(--red); border-color: rgba(248,81,73,0.3); }
+    .dns-row, .focus-row, .usage-row { margin-bottom: 5px; }
+    .dns-domain, .usage-name { width: 130px; font-size: 11px; font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+    .mini-bar-bg { flex: 1; height: 4px; background: var(--surface-hi); border-radius: 2px; overflow: hidden; }
+    .mini-bar-fill { height: 100%; }
+    .dns-count, .usage-meta { width: 50px; text-align: right; font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+    .focus-app { width: 100px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+    .focus-dur { width: 55px; text-align: right; font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    .divider { border: none; border-top: 0.5px solid var(--border); margin: 10px 0; }
+    .action-strip { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13,17,23,0.95); z-index: 200; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px; padding: 28px; max-width: 420px; width: 90%; }
+    .modal-brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 14px; }
+    .modal-title { font-size: 18px; text-align: center; margin-bottom: 18px; }
+    .form-label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+    .form-input, .form-textarea { width: 100%; background: var(--surface-hi); border: 0.5px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; padding: 8px 10px; margin-bottom: 12px; }
+    .form-textarea { resize: vertical; min-height: 70px; }
+    .btn-start { width: 100%; height: 38px; background: rgba(88,166,255,0.2); border: 0.5px solid var(--blue); color: var(--blue); font-size: 13px; cursor: pointer; border-radius: 6px; }
+    .modal-error { display: none; color: var(--red); font-size: 12px; margin-top: 8px; }
+    .about-link { font-size: 11px; color: var(--text-muted); text-decoration: none; }
+    .about-link:hover { color: var(--blue); }
+    .spinner { text-align: center; color: var(--purple); padding: 16px; font-size: 12px; }
+    .rename-input { width: 100%; font-size: 12px; background: var(--surface-hi); border: 0.5px solid var(--blue); color: var(--text); padding: 2px 4px; border-radius: 4px; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+    .modal-text { font-size: 13px; color: var(--text-sub); margin-bottom: 16px; line-height: 1.5; }
+    .paste-full-text {
+      width: 100%; min-height: 200px; max-height: 360px; overflow-y: auto;
+      background: var(--surface-hi); border: 0.5px solid var(--border); border-radius: 6px;
+      color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      padding: 12px; margin: 12px 0; white-space: pre-wrap; word-break: break-word;
+    }
+    .paste-preview-muted { color: var(--text-muted); font-size: 11px; margin-top: 4px; }
+    .btn-view-full { font-size: 10px; padding: 2px 8px; margin-top: 6px; }
+    .search-row {
+      display: flex; align-items: center; gap: 6px; padding: 4px 0;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .search-term { flex: 1; font-size: 12px; color: var(--text); }
+    .toast {
+      display: none; position: fixed; bottom: 24px; right: 24px; z-index: 300;
+      background: var(--surface); border: 0.5px solid var(--green); color: var(--green);
+      padding: 12px 18px; border-radius: 8px; font-size: 13px;
+    }
+    .toast.show { display: block; }
+    .apps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .apps-grid .full-width { grid-column: 1 / -1; margin-top: 8px; }
+    @media (max-width: 1100px) {
+      .stat-row { grid-template-columns: repeat(3, 1fr); }
+      .middle-row, .bottom-row, .extra-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="modal-overlay" id="startModal">
+    <div class="modal-card">
+      <div class="modal-brand"><span class="dot-red"></span><span class="brand">LABSHIELD</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <h2 class="modal-title" style="margin:0;">Start Exam Session</h2>
+        <button class="ai-chat-close" id="btnCloseStartModal" title="Close">✕</button>
+      </div>
+      <label class="form-label" for="sessionName">Session Name</label>
+      <input class="form-input" type="text" id="sessionName" placeholder="Exam Session">
+      <label class="form-label" for="examQuestion">Exam Question</label>
+      <textarea class="form-textarea" id="examQuestion" rows="3" placeholder="Enter the exam question..." required></textarea>
+      <label class="form-label" for="studentName">Student Name (optional)</label>
+      <input class="form-input" type="text" id="studentName" placeholder="Student name">
+      <div class="modal-actions">
+        <button class="btn" id="btnCancelStartExam">Cancel</button>
+        <button class="btn-start" id="btnStartMonitoring">Start Monitoring</button>
+      </div>
+      <div class="modal-error" id="modalError"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="endExamModal">
+    <div class="modal-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <h2 class="modal-title" style="margin:0;">End Exam Session</h2>
+        <button class="ai-chat-close" id="btnCloseEndModal" title="Close">✕</button>
+      </div>
+      <p class="modal-text">Enter password to confirm ending this session.</p>
+      <label class="form-label" for="endExamPassword">Password</label>
+      <input class="form-input" type="password" id="endExamPassword" placeholder="Dashboard password">
+      <div class="modal-error" id="endExamError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="btnCancelEndExam">Cancel</button>
+        <button class="btn btn-danger" id="btnConfirmEndExam">Confirm End</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="pasteViewModal">
+    <div class="modal-card" style="max-width:560px;">
+      <h2 class="modal-title" id="pasteModalTitle">Clipboard Paste</h2>
+      <div class="paste-full-text" id="pasteFullText" readonly></div>
+      <div class="modal-text" id="pasteCharCount"></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="btnClosePasteModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="deleteSessionModal">
+    <div class="modal-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <h2 class="modal-title" style="margin:0;">Delete Session</h2>
+        <button class="ai-chat-close" id="btnCloseDeleteModal" title="Close">✕</button>
+      </div>
+      <p class="modal-text">This will permanently delete the session and all its activity logs. This action cannot be undone.</p>
+      <label class="form-label" for="deleteSessionPassword">Password</label>
+      <input class="form-input" type="password" id="deleteSessionPassword" placeholder="Dashboard password">
+      <div class="modal-error" id="deleteSessionError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="btnCancelDeleteSession">Cancel</button>
+        <button class="btn btn-danger" id="btnConfirmDeleteSession">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastMessage"></div>
+
+  <!-- AI Chat Modal -->
+  <div class="ai-chat-overlay" id="aiChatOverlay">
+    <div class="ai-chat-modal" id="aiChatModal">
+      <div class="ai-chat-header">
+        <div>
+          <div class="ai-chat-title"><span class="ai-chat-title-icon">🤖</span> AI Investigator — Gemini Flash</div>
+          <div class="ai-chat-student" id="aiChatStudentLabel">No session selected</div>
+        </div>
+        <button class="ai-chat-close" id="btnCloseAiChat" title="Close">✕</button>
+      </div>
+      <div class="ai-chat-quick" id="aiQuickChips">
+        <button class="ai-quick-chip verdict-chip" data-q="__verdict__">🔍 Full AI Verdict</button>
+        <button class="ai-quick-chip" data-q="Did the student visit any suspicious websites during the exam?">🌐 Suspicious websites?</button>
+        <button class="ai-quick-chip" data-q="What did the student paste from clipboard? Was any paste suspicious?">📋 Clipboard pastes?</button>
+        <button class="ai-quick-chip" data-q="Did the student switch to non-exam apps? Which ones?">🪟 App switching?</button>
+        <button class="ai-quick-chip" data-q="Was the keystroke pattern normal or did it suggest copy-paste cheating?">⌨ Keystroke pattern?</button>
+        <button class="ai-quick-chip" data-q="Summarise the most suspicious moments in the session with exact timestamps.">⚠️ Suspicious moments?</button>
+        <button class="ai-quick-chip" data-q="What search queries did the student make and were they related to the exam question?">🔍 Search queries?</button>
+        <button class="ai-quick-chip" data-q="Give me a 3-sentence summary of the student's overall behaviour during the exam.">📝 Behaviour summary</button>
+      </div>
+      <div class="ai-chat-messages" id="aiChatMessages">
+        <div class="ai-msg">
+          <div class="ai-msg-avatar ai-avatar-ai">🤖</div>
+          <div>
+            <div class="ai-msg-bubble ai-bubble-ai">Hi! I have full access to this session's activity log — paste history, DNS queries, app usage, keystrokes and suspicion score. Ask me anything about the student's behaviour, or click a quick question above.</div>
+            <div class="ai-msg-ts">AI Investigator</div>
+          </div>
+        </div>
+      </div>
+      <div class="ai-chat-input-row">
+        <textarea class="ai-chat-input" id="aiChatInput" placeholder="Ask a question about this session…" rows="1"></textarea>
+        <button class="ai-send-btn" id="aiSendBtn" title="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <span class="sidebar-title">SESSIONS</span>
+        <button class="btn btn-primary btn-small" id="btnNewExam">New Exam</button>
+      </div>
+      <div class="session-list" id="sessionList"></div>
+      <div style="padding:8px;border-top:0.5px solid var(--border);">
+        <a href="/logout" class="about-link">Logout</a>
+      </div>
+    </aside>
+
+    <div class="content-wrap">
+      <header class="header">
+        <div class="header-left">
+          <span class="dot-red"></span>
+          <span class="brand">LABSHIELD</span>
+          <span class="header-sep">·</span>
+          <span class="header-question" id="headerQuestion">No exam question set</span>
+          <a href="/about" class="about-link">About</a>
+        </div>
+        <div class="header-right">
+          <span class="live-badge active" id="liveBadge">
+            <span class="dot-green" id="liveDot"></span>
+            <span id="liveText">LIVE</span>
+          </span>
+          <span class="timer mono" id="examTimer">0s</span>
+          <button class="btn btn-primary" id="btnAskAi">Ask AI</button>
+          <button class="btn btn-danger" id="btnEndExam">End Exam</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <div class="stat-row">
+          <div class="card" id="cardScore">
+            <div class="stat-label">SUSPICION SCORE</div>
+            <div class="stat-number color-green" id="statScore">0</div>
+            <div class="stat-sub color-green" id="statScoreLabel">Clean</div>
+            <div class="stat-strip strip-green" id="statScoreStrip"></div>
+          </div>
+          <div class="card">
+            <div class="stat-label">EVENTS LOGGED</div>
+            <div class="stat-number mono" id="statEvents">0</div>
+            <div class="stat-sub" id="statSince">since --:--</div>
+          </div>
+          <div class="card">
+            <div class="stat-label">FLAGGED</div>
+            <div class="stat-number mono" id="statFlagged">0</div>
+            <div class="stat-sub" id="statFlaggedSub">of 0 total</div>
+          </div>
+          <div class="card">
+            <div class="stat-label">KEYSTROKES</div>
+            <div class="stat-number mono" id="statKeystrokes">0</div>
+            <div class="stat-sub" id="statKeystrokeSub">avg 0/sec</div>
+          </div>
+          <div class="card">
+            <div class="stat-label">CLIPBOARD PASTES</div>
+            <div class="stat-number mono" id="statClipboard">0</div>
+            <div class="stat-sub" id="statClipboardSub">0 large (&gt;100 chars)</div>
+          </div>
+        </div>
+
+        <div class="middle-row">
+          <div class="col-stack">
+            <div class="card">
+              <div class="section-title">SUSPICION SCORE OVER TIME</div>
+              <div class="chart-wrap"><canvas id="scoreChart"></canvas></div>
+            </div>
+            <div class="card">
+              <div class="section-title">KEYSTROKE VELOCITY</div>
+              <div class="section-sub">Spike = code pasted instead of typed</div>
+              <div id="keystrokeBars"></div>
+              <div class="ks-warning" id="ksWarning" style="display:none;"></div>
+            </div>
+          </div>
+          <div class="col-stack">
+            <div class="card">
+              <div class="section-title">SCORE BREAKDOWN</div>
+              <div id="breakdownList"></div>
+              <div class="breakdown-total">
+                <span style="color:var(--text-muted);">TOTAL</span>
+                <span class="mono color-green" id="breakdownTotal" style="font-size:18px;">0</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="section-title">AI INVESTIGATOR</div>
+              <div id="verdictContent">
+                <div class="verdict-placeholder">Click 'Ask AI' in the header to open the AI chat</div>
+              </div>
+              <div style="margin-top:10px;">
+                <button class="btn btn-primary" id="btnOpenAiChat" style="width:100%;font-size:12px;">💬 Open AI Chat</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-row">
+          <div class="card">
+            <div class="timeline-header">
+              <div>
+                <span class="section-title" style="margin:0;">ACTIVITY TIMELINE</span>
+                <span class="count-badge" id="timelineCount">0 events</span>
+              </div>
+              <div class="timeline-controls">
+                <button class="btn btn-toggle" id="btnFlaggedOnly">Flagged only</button>
+                <button class="btn btn-toggle active" id="btnNewestFirst">Newest first</button>
+              </div>
+            </div>
+            <div class="timeline-scroll" id="timelineScroll"></div>
+          </div>
+          <div class="card">
+            <div class="section-title">TOP DNS QUERIES</div>
+            <div id="dnsList"></div>
+            <hr class="divider">
+            <div class="section-title">WINDOW FOCUS TIME</div>
+            <div id="focusList"></div>
+            <div class="action-strip">
+              <button class="btn btn-primary" id="btnExport">Export Report</button>
+              <button class="btn" id="btnDnsFilter">DNS Log</button>
+              <button class="btn btn-danger" id="btnClearSession">End Session</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="extra-row">
+          <div class="card">
+            <div class="section-title">CLIPBOARD PASTE HISTORY</div>
+            <div class="paste-scroll" id="pasteHistory"></div>
+          </div>
+          <div class="card">
+            <div class="section-title">APPS &amp; WEBSITES</div>
+            <div class="apps-grid">
+              <div>
+                <div class="section-sub">Apps Used</div>
+                <div id="appsList"></div>
+              </div>
+              <div>
+                <div class="section-sub">Websites Visited</div>
+                <div id="websitesList"></div>
+              </div>
+              <div class="full-width">
+                <div class="section-sub">SEARCH QUERIES</div>
+                <div id="searchQueriesList"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script>
+    const CLIPBOARD_THRESHOLD = 100;
+    const KEYSTROKE_THRESHOLD = 20;
+    let scoreChart = null;
+    let allEvents = [];
+    let scoreData = null;
+    let allSessions = [];
+    let selectedSessionId = null;
+    let sessionStartMs = null;
+    let timelineFilter = 'all';
+    let flaggedOnly = false;
+    let firstTimelineLoad = true;
+    let timerInterval = null;
+
+    function sessionQuery() {
+      return selectedSessionId ? '?session_id=' + selectedSessionId : '';
+    }
+
+    function formatElapsed(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+      if (m > 0) return m + 'm ' + s + 's';
+      return s + 's';
+    }
+
+    function formatDuration(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return m + 'm ' + s + 's';
+    }
+
+    function formatTimeShort(isoStr) {
+      if (!isoStr) return '--:--';
+      return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatEventTime(isoStr) {
+      return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function formatSessionDate(isoStr) {
+      if (!isoStr) return '';
+      return new Date(isoStr).toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    function eventIcon(type) {
+      return { dns_query:'🌐', window_change:'🪟', clipboard_paste:'📋', file_open:'📁', usb_mount:'💾', usb_unmount:'💾', keystroke_stats:'⌨', search_query:'🔍' }[type] || '•';
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toastMessage');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(function() { toast.classList.remove('show'); }, 3500);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      sessionStartMs = null;
+    }
+
+    function setHeaderEnded() {
+      const badge = document.getElementById('liveBadge');
+      badge.className = 'live-badge ended';
+      document.getElementById('liveText').textContent = 'ENDED';
+      document.getElementById('liveDot').style.background = '#f85149';
+    }
+
+    function openEndExamModal() {
+      document.getElementById('endExamPassword').value = '';
+      document.getElementById('endExamError').style.display = 'none';
+      document.getElementById('endExamModal').classList.add('show');
+      document.getElementById('endExamPassword').focus();
+    }
+
+    function closeEndExamModal() {
+      document.getElementById('endExamModal').classList.remove('show');
+    }
+
+    function openPasteModal(paste) {
+      document.getElementById('pasteModalTitle').textContent =
+        'Clipboard Paste — ' + formatEventTime(paste.timestamp);
+      document.getElementById('pasteFullText').textContent =
+        paste.full_content || paste.preview || '';
+      document.getElementById('pasteCharCount').textContent =
+        paste.char_count + ' characters';
+      document.getElementById('pasteViewModal').classList.add('show');
+    }
+
+    function closePasteModal() {
+      document.getElementById('pasteViewModal').classList.remove('show');
+    }
+
+    function openDeleteSessionModal(sessionId, sessionName) {
+      document.getElementById('deleteSessionPassword').value = '';
+      document.getElementById('deleteSessionError').style.display = 'none';
+      document.getElementById('deleteSessionModal').classList.add('show');
+      document.getElementById('deleteSessionModal').dataset.sessionId = sessionId;
+      document.getElementById('deleteSessionPassword').focus();
+    }
+
+    function closeDeleteSessionModal() {
+      document.getElementById('deleteSessionModal').classList.remove('show');
+      document.getElementById('deleteSessionModal').dataset.sessionId = '';
+    }
+
+    async function confirmDeleteSession() {
+      const modal = document.getElementById('deleteSessionModal');
+      const sessionId = modal.dataset.sessionId;
+      const password = document.getElementById('deleteSessionPassword').value;
+      const errorEl = document.getElementById('deleteSessionError');
+      errorEl.style.display = 'none';
+      try {
+        const resp = await fetch('/api/session/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: parseInt(sessionId), password: password })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          closeDeleteSessionModal();
+          await refreshAll();
+          showToast('Session deleted');
+        } else {
+          errorEl.textContent = data.error || 'Delete failed';
+          errorEl.style.display = 'block';
+        }
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    }
+
+    function eventBorderColor(ev) {
+      if (!ev.flagged) return '#21262d';
+      return ev.points >= 30 ? '#f85149' : '#d29922';
+    }
+
+    function isIdeApp(name) {
+      const l = name.toLowerCase();
+      return l.includes('visual studio code') || l.includes('pycharm') || l.includes('idle');
+    }
+
+    function isBrowser(name) {
+      const l = name.toLowerCase();
+      return l.includes('chrome') || l.includes('firefox') || l.includes('edge');
+    }
+
+    function updateStatCards(data) {
+      if (!data) return;
+      const sc = data.score_color || 'green';
+      document.getElementById('statScore').textContent = data.total_score || 0;
+      document.getElementById('statScore').className = 'stat-number color-' + sc;
+      document.getElementById('statScoreLabel').textContent = (data.score_label || 'Clean').toUpperCase();
+      document.getElementById('statScoreLabel').className = 'stat-sub color-' + sc;
+      document.getElementById('statScoreStrip').className = 'stat-strip strip-' + sc;
+      document.getElementById('statEvents').textContent = (data.event_count || 0).toLocaleString();
+      document.getElementById('statSince').textContent = 'since ' + formatTimeShort(data.session && data.session.started_at);
+      const flaggedEl = document.getElementById('statFlagged');
+      flaggedEl.textContent = (data.flagged_count || 0).toLocaleString();
+      flaggedEl.className = 'stat-number mono' + ((data.flagged_count || 0) > 0 ? ' color-red' : '');
+      document.getElementById('statFlaggedSub').textContent = 'of ' + (data.event_count || 0).toLocaleString() + ' total';
+      document.getElementById('statKeystrokes').textContent = (data.keystroke_count || 0).toLocaleString();
+      document.getElementById('statKeystrokeSub').textContent = 'avg ' + (data.avg_keystroke_rate || 0) + '/sec';
+      document.getElementById('statClipboard').textContent = (data.clipboard_count || 0).toLocaleString();
+      document.getElementById('statClipboardSub').textContent = (data.clipboard_flagged_count || 0) + ' large (>' + CLIPBOARD_THRESHOLD + ' chars)';
+    }
+
+    function updateHeader(data) {
+      const session = data.session;
+      const q = session && session.question ? session.question : 'No exam question set';
+      document.getElementById('headerQuestion').textContent = q.length > 50 ? q.substring(0, 50) + '…' : q;
+      const badge = document.getElementById('liveBadge');
+      if (session && !session.ended_at) {
+        badge.className = 'live-badge active';
+        document.getElementById('liveText').textContent = 'LIVE';
+        document.getElementById('liveDot').style.background = '#3fb950';
+        sessionStartMs = new Date(session.started_at).getTime();
+      } else {
+        badge.className = 'live-badge ended';
+        document.getElementById('liveText').textContent = 'ENDED';
+        document.getElementById('liveDot').style.background = '#f85149';
+      }
+    }
+
+    function updateScoreChart(history, yMax) {
+      const ctx = document.getElementById('scoreChart').getContext('2d');
+      const labels = history.map(function(p) { return p.time; });
+      const values = history.map(function(p) { return p.cumulative_score; });
+      if (scoreChart) scoreChart.destroy();
+      scoreChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{ data: values, borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,0.08)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#484f58', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: '#21262d' } },
+            y: { min: 0, max: yMax || 10, ticks: { color: '#484f58', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: '#21262d' } }
+          }
+        }
+      });
+    }
+
+    function updateKeystrokeBars(history) {
+      const container = document.getElementById('keystrokeBars');
+      const warning = document.getElementById('ksWarning');
+      container.innerHTML = '';
+      if (!history.length) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No keystroke data yet</div>';
+        warning.style.display = 'none';
+        return;
+      }
+      const maxRate = Math.max.apply(null, history.map(function(h) { return h.rate; })) || 1;
+      let redFound = null;
+      history.forEach(function(h) {
+        const isRed = h.rate >= KEYSTROKE_THRESHOLD;
+        if (isRed && !redFound) redFound = h;
+        const pct = Math.max(4, (h.rate / maxRate) * 100);
+        const color = isRed ? '#f85149' : '#3fb950';
+        const row = document.createElement('div');
+        row.className = 'ks-row';
+        row.innerHTML = '<span class="ks-time">' + h.timestamp + '</span><div class="ks-bar-bg"><div class="ks-bar-fill" style="width:' + pct + '%;background:' + color + ';"></div></div><span class="ks-rate" style="color:' + color + ';">' + h.rate.toFixed(1) + '</span>';
+        container.appendChild(row);
+      });
+      if (redFound) {
+        warning.style.display = 'block';
+        warning.textContent = '⚠ Paste velocity at ' + redFound.timestamp + ' — ' + redFound.rate.toFixed(1) + ' keys/sec exceeds human typing';
+      } else warning.style.display = 'none';
+    }
+
+    function updateBreakdown(breakdown, totalScore, scoreColor) {
+      const container = document.getElementById('breakdownList');
+      container.innerHTML = '';
+      const entries = breakdown || [];
+      if (!entries.length || totalScore === 0) {
+        container.innerHTML = '<div class="breakdown-empty">No suspicious activity detected</div>';
+      } else {
+        const maxPts = entries[0].total || 1;
+        entries.forEach(function(entry) {
+          const pct = Math.max(4, (entry.total / maxPts) * 100);
+          const row = document.createElement('div');
+          row.className = 'breakdown-row';
+          row.innerHTML = '<span class="breakdown-label">' + entry.label + '</span><div class="breakdown-bar-bg"><div class="breakdown-bar-fill" style="width:' + pct + '%;"></div></div><span class="breakdown-pts">+' + entry.total + '</span>';
+          container.appendChild(row);
+        });
+      }
+      document.getElementById('breakdownTotal').textContent = totalScore;
+      document.getElementById('breakdownTotal').className = 'mono color-' + scoreColor;
+    }
+
+    function updateDnsList(domains) {
+      const container = document.getElementById('dnsList');
+      container.innerHTML = '';
+      if (!domains.length) { container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No DNS queries</div>'; return; }
+      const maxCount = domains[0].count || 1;
+      domains.forEach(function(d) {
+        const color = d.flagged ? '#f85149' : (d.label ? '#484f58' : '#3fb950');
+        const barColor = d.flagged ? '#f85149' : '#21262d';
+        const pct = Math.max(4, (d.count / maxCount) * 100);
+        const row = document.createElement('div');
+        row.className = 'dns-row';
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '6px';
+        row.innerHTML = '<span class="dns-domain" style="color:' + color + ';">' + d.domain + '</span><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div><span class="dns-count">' + d.count + '×</span>' + (d.flagged && d.label ? '<span class="pill pill-red">' + d.label + '</span>' : '');
+        container.appendChild(row);
+      });
+    }
+
+    function updateFocusList(focus) {
+      const container = document.getElementById('focusList');
+      container.innerHTML = '';
+      if (!focus.length) { container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No window data</div>'; return; }
+      const maxSec = focus[0].seconds || 1;
+      focus.forEach(function(f) {
+        let barColor = '#58a6ff';
+        if (isIdeApp(f.app)) barColor = '#3fb950';
+        else if (isBrowser(f.app) && f.flagged) barColor = '#f85149';
+        const pct = Math.max(4, (f.seconds / maxSec) * 100);
+        const row = document.createElement('div');
+        row.className = 'focus-row';
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '6px';
+        row.innerHTML = '<span class="focus-app">' + f.app + '</span><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div><span class="focus-dur">' + formatDuration(f.seconds) + '</span>';
+        container.appendChild(row);
+      });
+    }
+
+    function updatePasteHistory(pastes) {
+      const container = document.getElementById('pasteHistory');
+      container.innerHTML = '';
+      if (!pastes.length) { container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No clipboard events</div>'; return; }
+      pastes.forEach(function(p, index) {
+        const row = document.createElement('div');
+        row.className = 'paste-row' + (p.flagged ? ' flagged' : '');
+        const previewText = (p.preview || '').substring(0, 80);
+        row.innerHTML =
+          '<span class="event-ts">' + formatEventTime(p.timestamp) + '</span>' +
+          '<div class="paste-detail">' +
+            '<span class="pill" style="color:var(--text-sub);border-color:var(--border);">' + p.char_count + ' chars</span>' +
+            (p.flagged ? ' <span class="pill pill-red">+' + p.points + ' ' + (p.label || '') + '</span>' : '') +
+            '<div class="paste-preview-muted">' + previewText + (p.preview && p.preview.length > 80 ? '…' : '') + '</div>' +
+            '<button class="btn btn-primary btn-view-full" data-paste-index="' + index + '">View Full</button>' +
+          '</div>';
+        row.querySelector('.btn-view-full').addEventListener('click', function() {
+          openPasteModal(p);
+        });
+        container.appendChild(row);
+      });
+    }
+
+    function updateSearchQueries(queries) {
+      const container = document.getElementById('searchQueriesList');
+      container.innerHTML = '';
+      if (!queries.length) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No searches detected this session</div>';
+        return;
+      }
+      queries.forEach(function(q) {
+        const row = document.createElement('div');
+        row.className = 'search-row';
+        row.innerHTML =
+          '<span class="event-ts">' + formatEventTime(q.timestamp) + '</span>' +
+          '<span class="event-icon">🔍</span>' +
+          '<span class="search-term">' + q.term + '</span>' +
+          (q.flagged ? '<span class="pill pill-red">Search</span>' : '');
+        container.appendChild(row);
+      });
+    }
+
+    function updateAppsWebsites(apps, websites) {
+      const appsEl = document.getElementById('appsList');
+      const webEl = document.getElementById('websitesList');
+      appsEl.innerHTML = '';
+      webEl.innerHTML = '';
+      if (!apps.length) appsEl.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No apps</div>';
+      else apps.slice(0, 12).forEach(function(a) {
+        const row = document.createElement('div');
+        row.className = 'usage-row';
+        row.innerHTML = '<span class="usage-name">' + a.app + '</span><span class="usage-meta">' + a.count + '×</span>';
+        appsEl.appendChild(row);
+      });
+      if (!websites.length) webEl.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">No websites</div>';
+      else websites.slice(0, 12).forEach(function(w) {
+        const row = document.createElement('div');
+        row.className = 'usage-row';
+        row.innerHTML = '<span class="usage-name" style="color:' + (w.flagged ? '#f85149' : '#8b949e') + ';">' + w.domain + '</span><span class="usage-meta">' + w.count + '×</span>';
+        webEl.appendChild(row);
+      });
+    }
+
+    function getFilteredEvents() {
+      let list = allEvents.slice();
+      if (flaggedOnly || timelineFilter === 'flagged') list = list.filter(function(ev) { return ev.flagged; });
+      if (timelineFilter === 'dns') list = list.filter(function(ev) { return ev.event_type === 'dns_query'; });
+      return list;
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('timelineScroll');
+      const filtered = getFilteredEvents();
+      document.getElementById('timelineCount').textContent = filtered.length.toLocaleString() + ' events';
+      container.innerHTML = '';
+      filtered.forEach(function(ev) {
+        const row = document.createElement('div');
+        row.className = 'event-row';
+        row.style.borderLeftColor = eventBorderColor(ev);
+        let badges = '';
+        if (ev.flagged) badges = '<div class="event-badges">' + (ev.points ? '<span class="pill pill-red">+' + ev.points + '</span>' : '') + (ev.label ? '<span class="pill pill-red">' + ev.label + '</span>' : '') + '</div>';
+        row.innerHTML = '<span class="event-ts">' + formatEventTime(ev.timestamp) + '</span><span class="event-icon">' + eventIcon(ev.event_type) + '</span><span class="event-detail" title="' + ev.detail.replace(/"/g, '&quot;') + '">' + ev.detail + '</span>' + badges;
+        container.appendChild(row);
+      });
+      if (firstTimelineLoad && filtered.length) { container.scrollTop = 0; firstTimelineLoad = false; }
+    }
+
+    function renderVerdict(data) {
+      const container = document.getElementById('verdictContent');
+      if (!data || data.verdict === 'ERROR') {
+        container.innerHTML = '<div style="color:var(--red);font-size:12px;margin-bottom:8px;">⚠ ' + (data ? data.reason : 'No data') + '</div>';
+        return;
+      }
+      let badgeClass = 'verdict-clean';
+      if (data.verdict === 'LIKELY CHEATED') badgeClass = 'verdict-cheated';
+      else if (data.verdict === 'POSSIBLY CHEATED') badgeClass = 'verdict-possible';
+      container.innerHTML =
+        '<div class="verdict-badge ' + badgeClass + '" style="margin-bottom:6px;">' + data.verdict + '</div>' +
+        '<div class="verdict-meta">Confidence: ' + (data.confidence || 'N/A') + ' · Gemini Flash</div>' +
+        '<div class="verdict-reason">' + (data.judgment || data.reason || '') + '</div>' +
+        '<div style="margin-top:8px;"><button class="btn btn-primary" id="btnOpenAiChatFromVerdict" style="font-size:11px;">💬 Chat for details</button></div>';
+      const detailBtn = document.getElementById('btnOpenAiChatFromVerdict');
+      if (detailBtn) detailBtn.addEventListener('click', openAiChat);
+    }
+
+    // ── AI Chat Modal ──────────────────────────────────────────────
+    let aiChatBusy = false;
+
+    function openAiChat() {
+      const overlay = document.getElementById('aiChatOverlay');
+      overlay.classList.add('show');
+      // Update header label
+      if (scoreData && scoreData.session) {
+        const s = scoreData.session;
+        const label = (s.student_name || 'Unnamed student') + ' · ' + (s.session_name || 'Exam Session');
+        document.getElementById('aiChatStudentLabel').textContent = label;
+      }
+      document.getElementById('aiChatInput').focus();
+    }
+
+    function closeAiChat() {
+      document.getElementById('aiChatOverlay').classList.remove('show');
+    }
+
+    function nowLabel() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function appendTeacherMsg(text) {
+      const msgs = document.getElementById('aiChatMessages');
+      const wrap = document.createElement('div');
+      wrap.className = 'ai-msg ai-msg-teacher';
+      wrap.innerHTML =
+        '<div class="ai-msg-avatar ai-avatar-teacher">👤</div>' +
+        '<div><div class="ai-msg-bubble ai-bubble-teacher">' + escHtml(text) + '</div>' +
+        '<div class="ai-msg-ts">' + nowLabel() + '</div></div>';
+      msgs.appendChild(wrap);
+      msgs.scrollTop = msgs.scrollHeight;
+      return wrap;
+    }
+
+    function appendTypingIndicator() {
+      const msgs = document.getElementById('aiChatMessages');
+      const wrap = document.createElement('div');
+      wrap.className = 'ai-msg';
+      wrap.id = 'aiTypingIndicator';
+      wrap.innerHTML =
+        '<div class="ai-msg-avatar ai-avatar-ai">🤖</div>' +
+        '<div><div class="ai-msg-bubble ai-bubble-ai ai-msg-typing">Analysing session data…</div></div>';
+      msgs.appendChild(wrap);
+      msgs.scrollTop = msgs.scrollHeight;
+      return wrap;
+    }
+
+    function removeTypingIndicator() {
+      const el = document.getElementById('aiTypingIndicator');
+      if (el) el.remove();
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function appendAiTextMsg(text) {
+      const msgs = document.getElementById('aiChatMessages');
+      const wrap = document.createElement('div');
+      wrap.className = 'ai-msg';
+      // Convert newlines to <br> for readability
+      const formatted = escHtml(text).replace(/\n/g, '<br>');
+      wrap.innerHTML =
+        '<div class="ai-msg-avatar ai-avatar-ai">🤖</div>' +
+        '<div><div class="ai-msg-bubble ai-bubble-ai">' + formatted + '</div>' +
+        '<div class="ai-msg-ts">' + nowLabel() + '</div></div>';
+      msgs.appendChild(wrap);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function appendAiVerdictMsg(data) {
+      const msgs = document.getElementById('aiChatMessages');
+      const wrap = document.createElement('div');
+      wrap.className = 'ai-msg';
+      let badgeCls = 'ai-bubble-verdict-clean';
+      if (data.verdict === 'LIKELY CHEATED') badgeCls = 'ai-bubble-verdict-cheated';
+      else if (data.verdict === 'POSSIBLY CHEATED') badgeCls = 'ai-bubble-verdict-possible';
+      else if (data.verdict === 'ERROR') badgeCls = 'ai-bubble-verdict-error';
+      const evidence = data.cheating_indicators || data.key_evidence || [];
+      let evidHtml = evidence.map(function(e) { return '<li>' + escHtml(e) + '</li>'; }).join('');
+      let actHtml = (data.main_activities || []).map(function(e) { return '<li style="color:var(--text-sub);">' + escHtml(e) + '</li>'; }).join('');
+      const inner =
+        '<div class="ai-bubble-verdict-badge ' + badgeCls + '">' + escHtml(data.verdict || 'ERROR') + '</div>' +
+        (data.confidence ? '<div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">Confidence: ' + escHtml(data.confidence) + ' · Gemini Flash</div>' : '') +
+        (data.reason ? '<div>' + escHtml(data.reason) + '</div>' : '') +
+        (actHtml ? '<ul class="ai-bubble-evidence">' + actHtml + '</ul>' : '') +
+        (evidHtml ? '<ul class="ai-bubble-evidence">' + evidHtml + '</ul>' : '') +
+        (data.judgment ? '<div class="ai-bubble-judgment">' + escHtml(data.judgment) + '</div>' : '');
+      wrap.innerHTML =
+        '<div class="ai-msg-avatar ai-avatar-ai">🤖</div>' +
+        '<div><div class="ai-msg-bubble ai-bubble-ai verdict-result">' + inner + '</div>' +
+        '<div class="ai-msg-ts">' + nowLabel() + ' · Full Verdict</div></div>';
+      msgs.appendChild(wrap);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    async function sendAiMessage(text) {
+      if (aiChatBusy || !text.trim()) return;
+      aiChatBusy = true;
+      document.getElementById('aiSendBtn').disabled = true;
+
+      if (text === '__verdict__') {
+        appendTeacherMsg('Get Full AI Verdict');
+        appendTypingIndicator();
+        try {
+          const resp = await fetch('/api/verdict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: selectedSessionId })
+          });
+          removeTypingIndicator();
+          const data = await resp.json();
+          appendAiVerdictMsg(data);
+          // Also update the sidebar card
+          renderVerdict(data);
+        } catch (err) {
+          removeTypingIndicator();
+          appendAiTextMsg('Error fetching verdict: ' + err.message);
+        }
+      } else {
+        appendTeacherMsg(text);
+        appendTypingIndicator();
+        try {
+          const resp = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: selectedSessionId, question: text })
+          });
+          removeTypingIndicator();
+          const data = await resp.json();
+          if (data.error) appendAiTextMsg('Error: ' + data.error);
+          else appendAiTextMsg(data.answer || '(No response)');
+        } catch (err) {
+          removeTypingIndicator();
+          appendAiTextMsg('Request failed: ' + err.message);
+        }
+      }
+
+      aiChatBusy = false;
+      document.getElementById('aiSendBtn').disabled = false;
+      document.getElementById('aiChatInput').focus();
+    }
+
+    async function requestVerdict() {
+      openAiChat();
+    }
+
+    function renderSessionList() {
+      const container = document.getElementById('sessionList');
+      container.innerHTML = '';
+      allSessions.forEach(function(s) {
+        const card = document.createElement('div');
+        card.className = 'session-card' + (s.id === selectedSessionId ? ' active' : '');
+        card.dataset.sessionId = s.id;
+        const badgeClass = 'badge-' + (s.score_color || 'green');
+        card.innerHTML =
+          '<div class="session-name" data-name="' + s.id + '">' + (s.session_name || 'Exam Session') + '</div>' +
+          '<div class="session-meta">' + (s.student_name || 'Unnamed') + '<br>' + formatSessionDate(s.started_at) + ' · ' + (s.duration_minutes || 0) + 'm</div>' +
+          '<span class="score-badge ' + badgeClass + '">' + (s.total_score || 0) + ' pts</span>' +
+          '<button class="btn-delete-session" title="Delete session" data-session-id="' + s.id + '">🗑</button>';
+        card.addEventListener('click', function(e) {
+          if (e.target.classList.contains('rename-input')) return;
+          if (e.target.classList.contains('btn-delete-session')) return;
+          selectedSessionId = s.id;
+          firstTimelineLoad = true;
+          renderSessionList();
+          refreshAll();
+        });
+        const nameEl = card.querySelector('.session-name');
+        nameEl.addEventListener('dblclick', function(e) {
+          e.stopPropagation();
+          const input = document.createElement('input');
+          input.className = 'rename-input';
+          input.value = s.session_name || 'Exam Session';
+          nameEl.textContent = '';
+          nameEl.appendChild(input);
+          input.focus();
+          input.select();
+          async function saveRename() {
+            const newName = input.value.trim();
+            if (newName && newName !== s.session_name) {
+              await fetch('/api/session/rename', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: s.id, new_name: newName })
+              });
+              await refreshSessions();
+            } else {
+              nameEl.textContent = s.session_name || 'Exam Session';
+            }
+          }
+          input.addEventListener('blur', saveRename);
+          input.addEventListener('keydown', function(ev) { if (ev.key === 'Enter') input.blur(); });
+        });
+        const deleteBtn = card.querySelector('.btn-delete-session');
+        deleteBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          openDeleteSessionModal(s.id, s.session_name || 'Exam Session');
+        });
+        container.appendChild(card);
+      });
+    }
+
+    async function refreshSessions() {
+      try {
+        const resp = await fetch('/api/sessions');
+        allSessions = await resp.json();
+        if (!selectedSessionId && allSessions.length) {
+          selectedSessionId = allSessions[0].id;
+        } else if (selectedSessionId && !allSessions.some(s => s.id === selectedSessionId)) {
+          // Selected session was deleted, clear it
+          selectedSessionId = null;
+        }
+        renderSessionList();
+      } catch (err) { console.error(err); }
+    }
+
+    async function refreshScore() {
+      try {
+        const resp = await fetch('/api/score' + sessionQuery());
+        scoreData = await resp.json();
+        if (!scoreData || scoreData.error) return;
+        if (scoreData.session_id) selectedSessionId = scoreData.session_id;
+        updateStatCards(scoreData);
+        updateHeader(scoreData);
+        updateScoreChart(scoreData.score_history || [{ time: '00:00', cumulative_score: 0 }], scoreData.chart_y_max || 10);
+        updateKeystrokeBars(scoreData.keystroke_history || []);
+        updateDnsList(scoreData.top_domains || []);
+        updateFocusList(scoreData.window_focus || []);
+        updatePasteHistory(scoreData.clipboard_history || []);
+        updateSearchQueries(scoreData.search_queries || []);
+        updateAppsWebsites(scoreData.apps_used || [], scoreData.websites_visited || []);
+        updateBreakdown(scoreData.score_breakdown || [], scoreData.total_score, scoreData.score_color);
+      } catch (err) { console.error(err); }
+    }
+
+    async function refreshEvents() {
+      try {
+        const resp = await fetch('/api/events' + sessionQuery());
+        allEvents = await resp.json();
+        renderTimeline();
+      } catch (err) { console.error(err); }
+    }
+
+    async function refreshAll() {
+      await refreshSessions();
+      await refreshScore();
+      await refreshEvents();
+    }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(function() {
+        if (!sessionStartMs) return;
+        document.getElementById('examTimer').textContent = formatElapsed(Date.now() - sessionStartMs);
+      }, 1000);
+    }
+
+    document.getElementById('btnNewExam').addEventListener('click', function() {
+      document.getElementById('startModal').classList.add('show');
+    });
+
+    document.getElementById('btnStartMonitoring').addEventListener('click', async function() {
+      const question = document.getElementById('examQuestion').value.trim();
+      const studentName = document.getElementById('studentName').value.trim();
+      const sessionName = document.getElementById('sessionName').value.trim() || 'Exam Session';
+      const errEl = document.getElementById('modalError');
+      if (!question) { errEl.style.display = 'block'; errEl.textContent = 'Exam question is required.'; return; }
+      try {
+        const resp = await fetch('/api/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question, student_name: studentName, session_name: sessionName })
+        });
+        const data = await resp.json();
+        if (!data.success) { errEl.style.display = 'block'; errEl.textContent = data.error || 'Failed.'; return; }
+        selectedSessionId = data.session_id;
+        document.getElementById('startModal').classList.remove('show');
+        errEl.style.display = 'none';
+        firstTimelineLoad = true;
+        await refreshAll();
+        startTimer();
+      } catch (err) { errEl.style.display = 'block'; errEl.textContent = err.message; }
+    });
+    ['examQuestion', 'studentName', 'sessionName'].forEach(function(id) {
+      document.getElementById(id).addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('btnStartMonitoring').click();
+      });
+    });
+
+    document.getElementById('btnAskAi').addEventListener('click', openAiChat);
+    document.getElementById('btnOpenAiChat').addEventListener('click', openAiChat);
+    document.getElementById('btnCloseAiChat').addEventListener('click', closeAiChat);
+
+    // Close chat on overlay background click
+    document.getElementById('aiChatOverlay').addEventListener('click', function(e) {
+      if (e.target === this) closeAiChat();
+    });
+
+    // Quick-question chips
+    document.querySelectorAll('.ai-quick-chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        const q = chip.getAttribute('data-q');
+        if (q) sendAiMessage(q);
+      });
+    });
+
+    // Send button
+    document.getElementById('aiSendBtn').addEventListener('click', function() {
+      const input = document.getElementById('aiChatInput');
+      const text = input.value.trim();
+      if (text) { input.value = ''; input.style.height = 'auto'; sendAiMessage(text); }
+    });
+
+    // Enter to send (Shift+Enter for new line)
+    document.getElementById('aiChatInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('aiSendBtn').click();
+      }
+    });
+
+    // Auto-resize textarea
+    document.getElementById('aiChatInput').addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+    });
+
+    document.getElementById('btnEndExam').addEventListener('click', openEndExamModal);
+    document.getElementById('btnCancelEndExam').addEventListener('click', closeEndExamModal);
+    document.getElementById('btnClosePasteModal').addEventListener('click', closePasteModal);
+    document.getElementById('btnCancelStartExam').addEventListener('click', function() {
+      document.getElementById('startModal').classList.remove('show');
+    });
+    document.getElementById('btnCloseStartModal').addEventListener('click', function() {
+      document.getElementById('startModal').classList.remove('show');
+    });
+    document.getElementById('btnCloseEndModal').addEventListener('click', closeEndExamModal);
+    document.getElementById('btnCloseDeleteModal').addEventListener('click', closeDeleteSessionModal);
+    document.getElementById('btnCancelDeleteSession').addEventListener('click', closeDeleteSessionModal);
+    document.getElementById('btnConfirmDeleteSession').addEventListener('click', confirmDeleteSession);
+    document.getElementById('deleteSessionPassword').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('btnConfirmDeleteSession').click();
+    });
+
+    document.getElementById('btnConfirmEndExam').addEventListener('click', async function() {
+      const password = document.getElementById('endExamPassword').value;
+      const errEl = document.getElementById('endExamError');
+      errEl.style.display = 'none';
+      try {
+        const resp = await fetch('/api/end', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: password, session_id: selectedSessionId })
+        });
+        const data = await resp.json();
+        if (!data.success) {
+          errEl.style.display = 'block';
+          errEl.textContent = data.error || 'Wrong password';
+          return;
+        }
+        closeEndExamModal();
+        stopTimer();
+        setHeaderEnded();
+        showToast('Session ended');
+        await refreshAll();
+      } catch (err) {
+        errEl.style.display = 'block';
+        errEl.textContent = err.message;
+      }
+    });
+
+    document.getElementById('endExamPassword').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('btnConfirmEndExam').click();
+    });
+    document.getElementById('btnFlaggedOnly').addEventListener('click', function() {
+      flaggedOnly = !flaggedOnly;
+      this.classList.toggle('active', flaggedOnly);
+      timelineFilter = flaggedOnly ? 'flagged' : (timelineFilter === 'dns' ? 'dns' : 'all');
+      renderTimeline();
+    });
+    document.getElementById('btnExport').addEventListener('click', function() {
+      window.location.href = '/export' + sessionQuery();
+    });
+    document.getElementById('btnDnsFilter').addEventListener('click', function() {
+      timelineFilter = timelineFilter === 'dns' ? 'all' : 'dns';
+      this.classList.toggle('active', timelineFilter === 'dns');
+      renderTimeline();
+    });
+    document.getElementById('btnClearSession').addEventListener('click', openEndExamModal);
+
+    refreshAll().then(function() {
+      startTimer();
+      setInterval(refreshAll, 10000);
+    });
+  </script>
+</body>
+</html>
